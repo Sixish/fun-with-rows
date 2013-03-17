@@ -20,7 +20,7 @@
  ** Toggle the ghost piece
  */
 (function (game) {
-  "use strict";
+	"use strict";
 	var events = {};
 	game.model = {};
 	game.model.world = [];
@@ -72,11 +72,11 @@
 	/*jslint bitwise: false*/
 	/*jslint bitwise: true*/
 	game.model.isVacant = function (x, y) {
-		return ((0 < x && x < game.model.maxx) && (0 < y && y < game.model.maxy)) && (game.model.world[x] !== undefined && game.model.world[x][y] === 0);
+		return ((0 <= x && x <= game.model.maxx) && (0 <= y && y <= game.model.maxy)) && (game.model.world[x] !== undefined && game.model.world[x][y] === 0);
 	};
 	/*jslint bitwise: false*/
 	game.model.move = function (x, y) {
-		if (!(typeof x === 'number' && typeof y === 'number')) { throw new Error('game.model.move: arguments must be numbers.'); }
+		if (!(typeof x === 'number' && typeof y === 'number')) { throw new Error('game.model.move: arguments must be numbers.', x, y); }
 		return game.model.position(game.model.posx + x, game.model.posy + y);
 	};
 	/*jslint bitwise: true*/
@@ -95,28 +95,54 @@
 	/*jslint bitwise: false*/
 	/*jslint bitwise: true*/
 	game.model.iterate = function (func, dx, dy) {
-		var x, y, c, active = game.model.blocks[game.model.rotation];
+		var x, y, c, active = game.model.active[game.model.rotation];
 		dx = dx === undefined ? game.model.posx : dx;
 		dy = dy === undefined ? game.model.posy : dy;
-		for (y = 0; y < 4; y += 1) {
+		for (y = 3; y >= 0; y -= 1) {
 			c = (active >> (12 - (y * 4))) & 0xf;
-			for (x = 0; x < 4; x += 1) {
-				if (!func(x + dx, y + dy)) { return false; }
+			for (x = 3; x >= 0; x -= 1) {
+				if ((c >> (3 - x)) & 0x1) {
+					if (func(x + dx, y + dy) === false) { return false; }
+				}
 			}
 		}
 		return true;
 	};
 	/*jslint bitwise: false*/
+	/*jslint bitwise: true*/
+	game.model.getWorld = function () {
+		var x, y, maxx = game.model.maxx, maxy = game.model.maxy, ret = [], c, dx, dy, active = game.model.active[game.model.rotation];
+		for (x = 0; x < maxx; x += 1) {
+			ret[x] = [];
+			for (y = 0; y < maxy; y += 1) {
+				ret[x][y] = game.model.world[x][y];
+			}
+		}
+		dx = game.model.posx;
+		dy = game.model.posy;
+		for (y = 0; y <= 3; y += 1) {
+			c = (active >> (12 - (y * 4))) & 0xf;
+			for (x = 0; x <= 3; x += 1) {
+				if ((c >> (3 - x)) & 0x1) {
+					ret[dx + x][dy + y] = ret[dx + x][dy + y] || ((active >> 16) & 0xf);
+				}
+			}
+		}
+		return ret;
+	};
+	/*jslint bitwise: false*/
 	game.model.position = function (x, y) {
-		var oldX = game.model.posx, oldY = game.model.posy;
+		var oldX = game.model.posx, oldY = game.model.posy, diffX, diffY;
 		if (x === undefined && y === undefined) { return [game.model.posx, game.model.posy]; }
 		if (!(typeof x === 'number' && typeof y === 'number')) { throw new Error('game.model.position: arguments must be numbers.'); }
-		if (x < 0 || y < 0) { throw new Error('game.model.position: arguments must be positive numbers.'); }
+		//if (x < 0 || y < 0) { throw new Error('game.model.position: arguments must be positive numbers.'); }
 		if (!game.model.iterate(game.model.isVacant, x, y)) { return false; }
 		game.model.posx = x;
 		game.model.posy = y;
-		game.model.iterate(function (x, y) {
-			game.model.fire('changeposition', { oldX: oldX, newX: x, oldY: oldY, newY: y, cid: game.model.color() });
+		diffX = x - oldX;
+		diffY = y - oldY;
+		game.model.iterate(function () {
+			game.model.fire('changeposition', game.model.getWorld());
 		});
 		return this;
 	};
@@ -139,20 +165,21 @@
 	/*jslint bitwise: true*/
 	game.model.place = function (dx, dy) {
 		// Place the active block at [dx, dy]
-		var x, y, active = game.model.active[game.model.rotation], c;
+		var x, y, active = game.model.active[game.model.rotation], c, cid;
 		if (dx === undefined && dy === undefined) {
 			dx = game.model.posx;
 			dy = game.model.posy;
 		}
 		if (!(typeof dx === 'number' && typeof dy === 'number')) { throw new Error('game.model.place: arguments must be numbers.'); }
+		function place(x, y) {
+			game.model.world[x][y] = cid;
+			game.model.fire('changetile', { posX: (x + dx), posY: (y + dy) });
+		}
 		for (y = 0; y < 4; y += 1) {
 			c = (active >> (12 - (y * 4))) & 0xf;
 			for (x = 0; x < 4; x += 1) {
-				if ((c >> (3 - x)) & 0x1) {
-					// 0x0FFFF
-					game.model.world[x + (dx || 0)][y + (dy || 0)] = (active >> 16);
-					game.model.fire('changetile', { posX: (x + dx), posY: (y + dy) });
-				}
+				cid = (active >> 16) & 0xf;
+				game.model.iterate(place);
 			}
 		}
 		game.model.fire('placeblock');
@@ -176,12 +203,44 @@
 			score += add;
 		};
 	}());
+	game.model.gravityShift = function gravityShift(arr) {
+		var x, y, maxx = game.model.maxx, maxy = arr.length, ret;
+		for (x = 0; x < maxx; x += 1) {
+			ret = [];
+			for (y = 0; y < maxy; y += 1) {
+				ret[y] = 0x0;
+			}
+			for (y = 0; y < maxy; y += 1) {
+				game.model.world[x].splice(arr[y], 1);
+			}
+			ret.push.apply(ret, game.model.world[x]);
+			game.model.world[x] = ret;
+		}
+	};
+	game.model.clear = function clear() {
+		var x, y, maxx = game.model.maxx, maxy = game.model.maxy, ret = [], linesCleared = [];
+		for (y = 0; y < maxy; y += 1) {
+			ret[y] = true;
+			for (x = 0; x < maxx && ret[y] !== false; x += 1) {
+				if (!game.model.world[x][y]) {
+					ret[y] = false;
+				}
+			}
+			if (ret[y]) {
+				linesCleared.push(y);
+			}
+		}
+		if (linesCleared.length) { game.model.fire('clearlines', linesCleared); }
+	};
 	game.model.resetPosition = function () {
 		game.model.posx = Math.floor(game.model.maxx / 2);
 		game.model.posy = 0;
 	};
+	game.model.bind('gamestart', game.model.generate);
 	game.model.bind('placeblock', game.model.resetPosition);
 	game.model.bind('placeblock', game.model.generate);
+	game.model.bind('placeblock', game.model.clear);
+	game.model.bind('clearlines', game.model.gravityShift);
 	(function () {
 		var x, maxx = game.model.maxx, y, maxy = game.model.maxy;
 		for (x = 0; x < maxx; x += 1) {
@@ -219,4 +278,6 @@
 			game.model.timeActive = time;
 		}
 	});
+	game.model.speed(2);
+	game.model.fire('gamestart');
 }(window.game = {}));
