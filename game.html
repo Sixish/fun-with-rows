@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+		<meta charset="utf-8">
+		<title>blah</title>
+		<script type="text/javascript" src="Model/Model.js"></script>
+		<script type="text/javascript" src="View/View.js"></script>
+		<script type="text/javascript" src="Controller/Controller.js"></script>
+		<style>
+.row {
+	float: left;
+	width: 20px;
+}
+.mono {
+	width: 20px;
+	height: 20px;
+	background-color: black;
+	float: left;
+}
+.mono-1 {
+	background: green;
+}
+		</style>
+	</head>
+	<body>
+		<h1>Game</h1>
+		<div id="tetris"></div>
+		<script type="text/javascript">
+window.game.view.init();
+//window.game.model.init();
+window.game.controller.init();
+		</script>
+	</body>
+</html>
