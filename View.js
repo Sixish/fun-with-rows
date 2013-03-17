@@ -1,5 +1,5 @@
 (function (game) {
-  "use strict";
+	"use strict";
 	/*globals window, document, game*/
 	var container, world, score, active, next, events = {};
 	if (game === undefined) { throw new Error('Game has not loaded.'); }
@@ -32,12 +32,14 @@
 	//container.appendChild(active);
 	//container.appendChild(next);
 	game.view.colors = [
-		"green",
-		"blue",
-		"purple",
-		"red",
-		"grey",
-		"orange"
+		"black", // background
+		"cyan", // I
+		"darkblue", // J
+		"orange", // L
+		"yellow", // O
+		"red", // Z
+		"green", // S
+		"purple" // T
 	];
 	game.view.tetrimino = function () {
 		var mono = document.createElement('div');
