@@ -147,11 +147,18 @@
 		return this;
 	};
 	game.model.rotate = function (diff) {
+		var curr = game.model.rotation;
 		if (typeof diff === 'boolean') { diff = diff ? 1 : -1; }
 		if (diff === undefined) { diff = 1; }
 		if (typeof diff !== 'number') { throw new Error('game.model.rotate: argument must be a number.'); }
 		game.model.rotation = (game.model.rotation + diff) % game.model.active.length;
-		game.model.fire('rotate');
+		if (!game.model.iterate(game.model.isVacant, 0, 0)) {
+			// the rotation could not change, it is not vacant
+			game.model.rotation = curr;
+			game.model.fire('errorrotate');
+			return false;
+		}
+		game.model.fire('rotate', game.model.getWorld());
 	};
 	game.model.speed = (function () {
 		var speed = 1;
@@ -278,6 +285,6 @@
 			game.model.timeActive = time;
 		}
 	});
-	game.model.speed(2);
+	game.model.speed(5);
 	game.model.fire('gamestart');
 }(window.game = {}));
