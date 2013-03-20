@@ -1,7 +1,7 @@
 (function (game) {
 	"use strict";
 	/*globals window, document, game*/
-	var container, world, score, active, next, events = {};
+	var container, world, score, active, next, clear, events = {};
 	if (game === undefined) { throw new Error('Game has not loaded.'); }
 	if (game.view !== undefined) { throw new Error('View is already loaded.'); }
 	game.view = {};
@@ -18,6 +18,8 @@
 	score = document.createElement('div');
 	active = document.createElement('div');
 	next = document.createElement('div');
+	clear = document.createElement('div');
+	clear.style.clear = 'both';
 	// Styles
 	world.style.width = game.view.maxx * game.view.blockWidth + "px";
 	world.style.height = game.view.maxy * game.view.blockHeight + "px";
@@ -33,6 +35,7 @@
 	//container.appendChild(next);
 	game.view.colors = [
 		"black", // background
+		"lightgrey", // ghost
 		"cyan", // I
 		"darkblue", // J
 		"orange", // L
@@ -197,8 +200,10 @@
 	};
 	game.view.world = [];
 	game.view.init = function () {
-		var x, y, maxx, maxy;
-		document.getElementById('tetris').appendChild(container);
+		var x, y, maxx, maxy, box;
+		box = document.getElementById('tetris');
+		box.appendChild(container);
+		container.focus();
 		for (x = 0, maxx = game.view.maxx; x < maxx; x += 1) {
 			game.view.world[x] = document.createElement('div');
 			game.view.world[x].className = 'row';
