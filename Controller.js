@@ -1,11 +1,11 @@
 (function (game) {
-  "use strict";
+	"use strict";
 	/*globals window, game*/
 	var events = {};
 	if (window.game === undefined) { throw new Error('Game has not loaded.'); }
 	if (game.model === undefined) { throw new Error('Model has not loaded.'); }
 	if (game.view === undefined) { throw new Error('View is not loaded.'); }
-	if (game.controller !== undefined) { throw new Error('Controller is already loaded.'); }
+//	if (game.controller !== undefined) { throw new Error('Controller is already loaded.'); }
 	game.controller = {};
 	// Controller setup
 	// Example:
@@ -19,7 +19,7 @@
 	game.controller.minKeyCode = 8;
 	game.controller.maxKeyCode = 222;
 	game.controller.invalidKeyCodes = [
-		10, 11, 12, 14, 15, 21, 22, 23, 24, 25, 26, 28, 29, 30, 31, 32, 41, 42, 43, 44, 47, 58, 59, 60, 61, 62, 63, 64, 94, 95, 108, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218
+		10, 11, 12, 14, 15, 21, 22, 23, 24, 25, 26, 28, 29, 30, 31, 41, 42, 43, 44, 47, 58, 59, 60, 61, 62, 63, 64, 94, 95, 108, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218
 	];
 	game.controller.fire = function (e, obj) {
 		var i, len;
@@ -84,9 +84,11 @@
 	});
 	game.controller.setup([ 17, 39 ], function () {
 		var pos;
-		do {
-			pos = game.model.move(-1, 0);
-		} while (pos);
+		do { pos = game.model.move(1, 0); } while (pos);
+	});
+	game.controller.setup([ 17, 37 ], function () {
+		var pos;
+		do { pos = game.model.move(-1, 0); } while (pos);
 	});
 	game.controller.setup([ 39 ], function () {
 		game.model.move(1, 0);
@@ -94,7 +96,24 @@
 	game.controller.setup([ 38 ], function () {
 		game.model.rotate(1);
 	});
+	game.controller.setup([ 80 ], function () {
+		game.model.pause(!game.model.pause());
+	});
+	game.model.bind('changeposition', game.model.ghost);
+	game.model.bind('applyghost', game.view.render);
 	game.model.bind('changeposition', game.view.render);
+	game.model.bind('rotate', game.view.render);
+	window.addEventListener('keydown', function (e) {
+		if (e.keyCode === 32 || (e.keyCode >= 37 && e.keyCode <= 40)) {
+			e.preventDefault();
+		}
+	});
+	game.controller.setup([ 32 ], function () {
+		var pos;
+		do {
+			pos = game.model.move(0, 1);
+		} while (pos);
+	});
 	//game.model.bind('changetile', game.view.render);
 	//game.model.bind('rotate', game.view.render);
 	//game.model.bind('changeactive', game.view.render);
