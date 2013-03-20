@@ -1,24 +1,3 @@
-/*globals window*/
-/* Functions
- * Tetris.lower()
- ** Lower the active piece by 1 tile
- * Tetris.rotate(diff)
- * Tetris.place(x, y)
- * Tetris.clear()
- ** Clear all full game rows
- * Tetris.bind()
- * Tetris.fire()
- * Tetris.unbind()
- ** Remove hook from event
- * Tetris.score()
- * Tetris.hold()
- ** Hold a tetrimino.
- * Tetris.generate()
- * Tetris.speed()
- ** Change the fall speed of tetriminos
- * Tetris.ghost()
- ** Toggle the ghost piece
- */
 (function (game) {
 	"use strict";
 	var events = {};
@@ -36,21 +15,37 @@
 	game.model.rotation = 0;
 	game.model.blocks = [
 		// HEX :
-		// 4 bytes color index
-		// 4 bytes first row
-		// 4 bytes second row
-		// 4 bytes third row
-		// 4 bytes fourth row
-		[ 0x10F00, 0x12222, 0x100F0, 0x14444 ],
-		[ 0x244C0, 0x28E00, 0x26440, 0x20E20 ],
-		[ 0x34460, 0x30E80, 0x3C440, 0x32E00 ],
-		[ 0x4CC00, 0x4CC00, 0x4CC00, 0x4CC00 ],
-		[ 0x506C0, 0x58C40, 0x56C00, 0x54620 ],
-		[ 0x60E40, 0x64C40, 0x64E00, 0x64640 ],
-		[ 0x70C60, 0x74C80, 0x7C600, 0x72640 ]
+		// 1 byte color index
+		// 1 byte first row
+		// 1 byte second row
+		// 1 byte third row
+		// 1 byte fourth row
+		[ 0x20F00, 0x22222, 0x200F0, 0x24444 ],
+		[ 0x344C0, 0x38E00, 0x36440, 0x30E20 ],
+		[ 0x44460, 0x40E80, 0x4C440, 0x42E00 ],
+		[ 0x5CC00, 0x5CC00, 0x5CC00, 0x5CC00 ],
+		[ 0x606C0, 0x68C40, 0x66C00, 0x64620 ],
+		[ 0x70E40, 0x74C40, 0x74E00, 0x74640 ],
+		[ 0x80C60, 0x84C80, 0x8C600, 0x82640 ]
 	];
+	game.model.ghost = (function () {
+		var ghost;
+		function findGhostPos() {
+			var pos, n = 0;
+			while (game.model.iterate([ game.model.posx, game.model.posy + n], game.model.isVacant)) {
+				pos = [ game.model.posx, game.model.posy + n ];
+				n += 1;
+			}
+			return pos;
+		}
+		return function () {
+			ghost = findGhostPos();
+			return ghost;
+		};
+	}());
 	game.model.fire = function (e, obj) {
 		var i, len;
+		if (game.model.state === 'gameover') { return false; }
 		if (typeof e !== 'string') { throw new Error('game.model.fire: invalid event.'); }
 		if (events[e] === undefined) { return false; }
 		for (i = 0, len = events[e].length; i < len; i += 1) {
@@ -71,12 +66,16 @@
 	};
 	/*jslint bitwise: false*/
 	/*jslint bitwise: true*/
+	game.model.isInWorld = function (x, y) {
+		return (0 <= x && x < game.model.maxx) && (0 < y && y <= game.model.maxy);
+	};
 	game.model.isVacant = function (x, y) {
-		return ((0 <= x && x <= game.model.maxx) && (0 <= y && y <= game.model.maxy)) && (game.model.world[x] !== undefined && game.model.world[x][y] === 0);
+		if (!game.model.isInWorld(x, y)) { return false; }
+		return (game.model.world[x] && game.model.world[x][y] === 0);
 	};
 	/*jslint bitwise: false*/
 	game.model.move = function (x, y) {
-		if (!(typeof x === 'number' && typeof y === 'number')) { throw new Error('game.model.move: arguments must be numbers.', x, y); }
+		if (!(typeof x === 'number' && typeof y === 'number')) { throw new Error('game.model.move: arguments must be numbers.'); }
 		return game.model.position(game.model.posx + x, game.model.posy + y);
 	};
 	/*jslint bitwise: true*/
@@ -94,12 +93,26 @@
 	};
 	/*jslint bitwise: false*/
 	/*jslint bitwise: true*/
-	game.model.iterate = function (func, dx, dy) {
-		var x, y, c, active = game.model.active[game.model.rotation];
-		dx = dx === undefined ? game.model.posx : dx;
-		dy = dy === undefined ? game.model.posy : dy;
+	game.model.iterate = function (block, pos, func) {
+		var x, y, dx, dy, c, active = game.model.active[game.model.rotation];
+		if (typeof pos === 'function') {
+			func = pos;
+			pos = [ game.model.posx, game.model.posy ];
+		}
+		if (typeof block === 'object') {
+			pos = block;
+			block = game.model.active[game.model.rotation];
+		}
+		if (typeof block === 'function') {
+			func = block;
+			pos = [ game.model.posx, game.model.posy ];
+			block = game.model.active[game.model.rotation];
+		}
+		if (typeof func !== 'function' || typeof pos !== 'object' || typeof block !== 'number') { throw new Error('game.model.iterate: invalid argument(s).'); }
+		dx = pos[0];
+		dy = pos[1];
 		for (y = 3; y >= 0; y -= 1) {
-			c = (active >> (12 - (y * 4))) & 0xf;
+			c = (block >> (12 - (y * 4))) & 0xf;
 			for (x = 3; x >= 0; x -= 1) {
 				if ((c >> (3 - x)) & 0x1) {
 					if (func(x + dx, y + dy) === false) { return false; }
@@ -111,7 +124,7 @@
 	/*jslint bitwise: false*/
 	/*jslint bitwise: true*/
 	game.model.getWorld = function () {
-		var x, y, maxx = game.model.maxx, maxy = game.model.maxy, ret = [], c, dx, dy, active = game.model.active[game.model.rotation];
+		var x, y, maxx = game.model.maxx, maxy = game.model.maxy, ret = [], c, ghost = game.model.ghost(), dx, dy, gdx, gdy, active = game.model.active[game.model.rotation];
 		for (x = 0; x < maxx; x += 1) {
 			ret[x] = [];
 			for (y = 0; y < maxy; y += 1) {
@@ -120,11 +133,24 @@
 		}
 		dx = game.model.posx;
 		dy = game.model.posy;
+		if (ghost) {
+			gdx = game.model.ghost()[0];
+			gdy = game.model.ghost()[1];
+		}
 		for (y = 0; y <= 3; y += 1) {
 			c = (active >> (12 - (y * 4))) & 0xf;
 			for (x = 0; x <= 3; x += 1) {
 				if ((c >> (3 - x)) & 0x1) {
+					if (ret[dx + x] === undefined) {
+						throw new Error('ret[dx + x] is undefined.');
+					}
 					ret[dx + x][dy + y] = ret[dx + x][dy + y] || ((active >> 16) & 0xf);
+					if (ghost) {
+						if (ret[gdx + x] === undefined) {
+							throw new Error('crap.');
+						}
+						ret[gdx + x][gdy + y] = ret[gdx + x][gdy + y] || 0x1;
+					}
 				}
 			}
 		}
@@ -136,7 +162,7 @@
 		if (x === undefined && y === undefined) { return [game.model.posx, game.model.posy]; }
 		if (!(typeof x === 'number' && typeof y === 'number')) { throw new Error('game.model.position: arguments must be numbers.'); }
 		//if (x < 0 || y < 0) { throw new Error('game.model.position: arguments must be positive numbers.'); }
-		if (!game.model.iterate(game.model.isVacant, x, y)) { return false; }
+		if (!game.model.iterate([x, y], game.model.isVacant)) { return false; }
 		game.model.posx = x;
 		game.model.posy = y;
 		diffX = x - oldX;
@@ -147,18 +173,22 @@
 		return this;
 	};
 	game.model.rotate = function (diff) {
-		var curr = game.model.rotation;
+		var blocks, pos;
 		if (typeof diff === 'boolean') { diff = diff ? 1 : -1; }
 		if (diff === undefined) { diff = 1; }
 		if (typeof diff !== 'number') { throw new Error('game.model.rotate: argument must be a number.'); }
-		game.model.rotation = (game.model.rotation + diff) % game.model.active.length;
-		if (!game.model.iterate(game.model.isVacant, 0, 0)) {
-			// the rotation could not change, it is not vacant
-			game.model.rotation = curr;
-			game.model.fire('errorrotate');
-			return false;
+		//game.model.rotation = (game.model.rotation + diff) % game.model.active.length;
+		// check if the rotation is valid
+		blocks = game.model.active[(game.model.rotation + diff) % game.model.active.length];
+		pos = [ game.model.posx, game.model.posy ];
+		if (game.model.iterate(blocks, pos, game.model.isVacant)) {
+			if (!game.model.iterate(blocks, pos, game.model.isInWorld)) { }
+			game.model.rotation = (game.model.rotation + diff) % game.model.active.length;
+			game.model.fire('rotate', game.model.getWorld());
+			return true;
 		}
-		game.model.fire('rotate', game.model.getWorld());
+		// could not rotate
+		game.model.fire('errorrotate');
 	};
 	game.model.speed = (function () {
 		var speed = 1;
@@ -167,6 +197,14 @@
 			if (typeof value !== 'number') { throw new Error('game.model.speed: expected numerical argument.'); }
 			speed = value;
 			return this;
+		};
+	}());
+	game.model.pause = (function () {
+		var paused = false;
+		return function pause(to) {
+			if (to === undefined) { return paused; }
+			if (typeof paused === 'boolean') { paused = to; }
+			
 		};
 	}());
 	/*jslint bitwise: true*/
@@ -186,7 +224,9 @@
 			c = (active >> (12 - (y * 4))) & 0xf;
 			for (x = 0; x < 4; x += 1) {
 				cid = (active >> 16) & 0xf;
-				game.model.iterate(place);
+				if (game.model.iterate(game.model.isVacant)) {
+					game.model.iterate(place);
+				}
 			}
 		}
 		game.model.fire('placeblock');
@@ -211,33 +251,53 @@
 		};
 	}());
 	game.model.gravityShift = function gravityShift(arr) {
-		var x, y, maxx = game.model.maxx, maxy = arr.length, ret;
+		var x, y, maxx = game.model.maxx, maxy = game.model.maxy, arrlen = arr.length, ret, res;
 		for (x = 0; x < maxx; x += 1) {
 			ret = [];
-			for (y = 0; y < maxy; y += 1) {
+			for (y = 0; y <= arrlen; y += 1) {
 				ret[y] = 0x0;
 			}
-			for (y = 0; y < maxy; y += 1) {
-				game.model.world[x].splice(arr[y], 1);
+			for (y; y <= maxy; y += 1) {
+				if (arr.indexOf(y) === -1) {
+					ret.push(game.model.world[x][y]);
+				}
 			}
-			ret.push.apply(ret, game.model.world[x]);
 			game.model.world[x] = ret;
 		}
 	};
-	game.model.clear = function clear() {
-		var x, y, maxx = game.model.maxx, maxy = game.model.maxy, ret = [], linesCleared = [];
+	game.model.getColumnAt = function (x) {
+		var y, ret = [], maxy = game.model.maxy;
 		for (y = 0; y < maxy; y += 1) {
-			ret[y] = true;
-			for (x = 0; x < maxx && ret[y] !== false; x += 1) {
-				if (!game.model.world[x][y]) {
-					ret[y] = false;
-				}
-			}
-			if (ret[y]) {
-				linesCleared.push(y);
-			}
+			ret[y] = game.model.world[x][y];
 		}
-		if (linesCleared.length) { game.model.fire('clearlines', linesCleared); }
+		return ret;
+	};
+	game.model.getRowAt = function (y) {
+		var x, ret = [], maxx = game.model.maxx;
+		for (x = 0; x < maxx; x += 1) {
+			ret[x] = game.model.world[x][y];
+		}
+		return ret;
+	};
+	game.model.shiftRow = function shiftRow(r, amount) {
+		var x, maxx = game.model.maxx, maxy = game.model.maxy;
+		if (!amount) { return false; }
+		for (x = 0; x < maxx; x += 1) {
+			game.model.world[x][r + amount] = game.model.world[x][r];
+		}
+	};
+	game.model.clear = function clear() {
+		var x, y, row, count = 0, rowsCleared = [], ret = [], maxy = game.model.maxy;
+		for (y = maxy - 1; y >= 0; y -= 1) {
+			row = game.model.getRowAt(y);
+			if (rowsCleared.length) { game.model.shiftRow(y, rowsCleared.length); }
+			if (row.indexOf(0) === -1) {
+				// Row y is full
+				rowsCleared.push(y);
+			}
+			// shift them up
+		}
+		//if (rowsCleared.length) { game.model.fire('clearlines', rowsCleared); }
 	};
 	game.model.resetPosition = function () {
 		game.model.posx = Math.floor(game.model.maxx / 2);
@@ -259,7 +319,10 @@
 	}());
 	// The game loop
 	game.model.loop = (function () {
-		function loop() { game.model.fire('loop'); }
+		function loop() {
+			if (game.model.pause()) { return false; }
+			game.model.fire('loop');
+		}
 		return window.setInterval(loop, 100);
 	}());
 	game.model.end = function endLoop() {
