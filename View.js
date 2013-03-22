@@ -178,23 +178,16 @@
 	game.view.bind('changestats', function () {
 		return this;
 	});
-	game.view.color = function (obj) {
-		var xi, xn, yi, yn, cid;
-		xi = obj.oldX;
-		xn = obj.newX;
-		yi = obj.oldY;
-		yn = obj.newY;
-		cid = obj.cid;
-		game.view.world[xi].children[yi].style.backgroundColor = 'black';
-		//game.view.world[xi].children[yi].style.border = '1px solid #fff';
-		game.view.world[xn].children[yn].style.backgroundColor = game.view.colors[cid];
-	};
 	game.view.render = function render(world) {
-		var x, y, maxx = game.view.maxx, maxy = game.view.maxy, c;
+		var x, y, maxx = game.view.maxx, maxy = game.view.maxy, c, cls;
 		for (x = 0; x < maxx; x += 1) {
 			for (y = 0; y < maxy; y += 1) {
-				c = game.view.colors[world[x][y]] || 'black';
-				game.view.world[x].children[y].style.backgroundColor = c;
+				c = world[x][y] || 0;
+				cls = game.view.world[x].children[y].className;
+				cls = cls.replace(/\s*mono_c[0-9]+/, '');
+				cls += cls !== '' ? ' ' : '';
+				cls += 'mono_c' + c;
+				game.view.world[x].children[y].className = cls;
 			}
 		}
 	};

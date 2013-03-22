@@ -13,6 +13,8 @@
 	game.model.active = [ 0x000 ];
 	game.model.active.color = 0xf;
 	game.model.rotation = 0;
+	game.model.placeattemptcount = 0;
+	game.model.placeattempts = 2;
 	game.model.blocks = [
 		// HEX :
 		// 1 byte color index
@@ -45,7 +47,7 @@
 	}());
 	game.model.fire = function (e, obj) {
 		var i, len;
-		if (game.model.state === 'gameover') { return false; }
+		//if (game.model.state === 'gameover') { return false; }
 		if (typeof e !== 'string') { throw new Error('game.model.fire: invalid event.'); }
 		if (events[e] === undefined) { return false; }
 		for (i = 0, len = events[e].length; i < len; i += 1) {
@@ -182,7 +184,7 @@
 		blocks = game.model.active[(game.model.rotation + diff) % game.model.active.length];
 		pos = [ game.model.posx, game.model.posy ];
 		if (game.model.iterate(blocks, pos, game.model.isVacant)) {
-			if (!game.model.iterate(blocks, pos, game.model.isInWorld)) { }
+			//if (!game.model.iterate(blocks, pos, game.model.isInWorld)) { }
 			game.model.rotation = (game.model.rotation + diff) % game.model.active.length;
 			game.model.fire('rotate', game.model.getWorld());
 			return true;
@@ -204,7 +206,6 @@
 		return function pause(to) {
 			if (to === undefined) { return paused; }
 			if (typeof paused === 'boolean') { paused = to; }
-			
 		};
 	}());
 	/*jslint bitwise: true*/
@@ -303,6 +304,20 @@
 		game.model.posx = Math.floor(game.model.maxx / 2);
 		game.model.posy = 0;
 	};
+	game.model.init = function (w) {
+		var world = [], x, y, maxx = game.model.maxx, maxy = game.model.maxy;
+		for (x = 0; x < maxx; x += 1) {
+			world[x] = [];
+			for (y = 0; y < maxy; y += 1) {
+				world[x][y] = (w !== undefined ? (w[x] !== undefined ? (w[x][y] || 0) : 0) : 0);
+			}
+		}
+		game.model.world = world;
+		// reset position
+		game.model.resetPosition();
+		return world;
+	};
+	game.model.bind('gamestart', game.model.init);
 	game.model.bind('gamestart', game.model.generate);
 	game.model.bind('placeblock', game.model.resetPosition);
 	game.model.bind('placeblock', game.model.generate);
@@ -328,7 +343,7 @@
 	game.model.end = function endLoop() {
 		window.clearInterval(game.model.loop);
 	};
-	game.model.bind('gameover', game.model.end);
+	//game.model.bind('gameover', game.model.end);
 	game.model.bind('loop', function () {
 		var i = 0, len = game.model.world.length;
 		for (i; i < len; i += 1) {
@@ -340,10 +355,15 @@
 		return true;
 	});
 	game.model.bind('loop', function () {
-		var time = +(new Date()), speed = game.model.speed(), ptime = game.model.timeActive;
+		var time = +(new Date()), speed = game.model.speed(), ptime = game.model.timeActive, pptd;
 		if (ptime === undefined || ptime + (1000 / speed) < time) {
 			if (!game.model.move(0, 1)) {
-				game.model.place();
+				if (game.model.placeattempts <= game.model.placeattemptcount) {
+					game.model.place();
+					game.model.placeattemptcount = 0;
+				} else {
+					game.model.placeattemptcount += 1;
+				}
 			}
 			game.model.timeActive = time;
 		}

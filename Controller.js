@@ -79,6 +79,9 @@
 		game.controller.bind(id, action);
 		return this;
 	};
+	game.controller.setup([ 82 ], function () {
+		game.model.init();
+	});
 	game.controller.setup([ 37 ], function () {
 		game.model.move(-1, 0);
 	});
